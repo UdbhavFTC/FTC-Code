@@ -1,0 +1,78 @@
+package org.firstinspires.ftc.teamcode.Backends;
+
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.HardwareDevice;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
+import com.qualcomm.robotcore.hardware.NormalizedRGBA;
+
+import org.firstinspires.ftc.robotcore.external.Telemetry;
+
+import java.text.Normalizer;
+@TeleOp
+public class ColorSensorMethod {
+   NormalizedColorSensor colorSensor;
+
+   public enum detectedColor {
+       PURPLE_INDIRECT,
+       PURPLE_DIRECT,
+       GREEN_INDIRECT,
+       GREEN_DIRECT,
+       UNKNOWN
+   }
+
+   public void init(HardwareMap hwMap) {
+       colorSensor = hwMap.get(NormalizedColorSensor.class, "colorSensor");
+       colorSensor.setGain(14);
+
+   }
+
+   public detectedColor getDetectedColor(Telemetry telemetry) {
+       NormalizedRGBA colors = colorSensor.getNormalizedColors(); //return 4 values: Gives Red Green Blue Alphas(Brightness)
+
+
+       float normred, normgreen, normblue;
+       normred = colors.red / colors.alpha;
+       normgreen = colors.green / colors.alpha;
+       normblue = colors.blue / colors.alpha;
+
+       telemetry.addData("red", normred);
+       telemetry.addData("green", normgreen);
+       telemetry.addData("blue", normblue);
+
+//Find values for green and purple
+/* Red, Green, Blue
+GREEN DIRECT BALL: (red: <0.069, green: <0.265, blue: <0.2)
+GREEN INDIRECT BALL: (red: >0.09, green: >0.27, blue: <0.21)
+PURPLE DIRECT BALL: (red: >0.385, green: >0.44, blue: >0.74)
+PURPLE INDIRECT BALL: (red: <0.235, green: <0.36, blue: <0.335)
+*/
+
+
+//GREEN DIRECT
+       if (normred < 0.069 && normgreen < 0.265 && normblue < 0.2) {
+           return detectedColor.GREEN_DIRECT;
+       }
+
+//GREEN INDIRECT
+       if (normred > 0.09 && normgreen > 0.27 && normblue < 0.21){
+           return detectedColor.GREEN_INDIRECT;
+       }
+
+//PURPLE DIRECT
+       if (normred > 0.385 && normgreen > 0.44 && normblue > 0.74) {
+           return detectedColor.PURPLE_DIRECT;
+       }
+
+//PURPLE INDIRECT
+       if (normred < 0.235 && normgreen < 0.36 && normblue < 0.335) {
+           return detectedColor.PURPLE_INDIRECT;
+       }
+
+       return detectedColor.UNKNOWN;
+
+
+
+
+   }
+}
