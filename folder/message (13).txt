@@ -1,0 +1,62 @@
+package org.firstinspires.ftc.teamcode.CameraLogitech;
+
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.Range;
+
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+
+import java.util.List;
+
+@TeleOp(name="TurretPowerChange", group = "Test")
+public class TurretPowerChange extends OpMode {
+   private VisionPortal visionPortal;
+   private AprilTagProcessor aprilTag;
+
+   DcMotor Shooter;
+
+   double power;
+
+   @Override
+   public void init() {
+       aprilTag = new AprilTagProcessor.Builder().build();
+       visionPortal = new VisionPortal.Builder()
+               .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
+               .addProcessor(aprilTag)
+               .build();
+       Shooter = hardwareMap.get(DcMotor.class, "Shooter");
+
+   }
+
+   @Override
+   public void loop() {
+       if (gamepad1.dpad_down){
+           Shooter.setPower(0.6);
+           return;}
+
+       List<AprilTagDetection> detections = aprilTag.getDetections();
+       AprilTagDetection fieldTag = null;
+
+       for (AprilTagDetection detection : detections) {
+           if (detection.id >= 20 && detection.id <= 24) {
+               fieldTag = detection;
+               break;
+           }
+       }
+           if (fieldTag != null && fieldTag.ftcPose !=null) {
+               double distance = fieldTag.ftcPose.range;  // Distance in inches
+               telemetry.addData("Distance", "%.1f in", distance);
+               power = Range.clip(0.05*distance,0,1.0);
+               Shooter.setPower(power);
+               telemetry.addData("Power","%.2f", power);
+           }
+       telemetry.update();
+
+           }
+       }
