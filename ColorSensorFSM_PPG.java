@@ -1,0 +1,173 @@
+package org.firstinspires.ftc.teamcode.IndexingFSMs;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
+
+import org.firstinspires.ftc.teamcode.Backends.ColorSensorBackend;
+
+public class ColorSensorFSM_PPG extends OpMode {
+    private ColorSensorBackend colorSensorBackend;
+    final double timer = 0.5;
+
+    final double timerforshoot = 0.75;
+
+    final double flickerdown = 0.5;
+
+    private enum Color_Sensor_PPG {
+        TRIGGER_PPG,
+        SHOOTPURPLE1_PPG,
+        FLICKER1DOWN_PPG,
+        BREAK1_PPG,
+        SHOOTPURPLE2_PPG,
+        FLICKER2DOWN_PPG,
+        BREAK2_PPG,
+        SHOOTGREEN_PPG,
+        FLICKER3DOWN_PPG,
+    }
+
+    Servo Flicker1;
+    Servo Flicker2;
+    Servo Flicker3;
+
+    private int usedSensorPurple2 = 0;
+    private int usedSensorPurple1 = 0;
+
+    //PURPLE PURPLE GREEN
+    Color_Sensor_PPG color_sensor_ppg = Color_Sensor_PPG.TRIGGER_PPG;
+
+    ElapsedTime color_sensor_ppg_timer = new ElapsedTime();
+
+    private void flickSensor(int sensorId) {
+        switch (sensorId) {
+            case 1:
+                Flicker1.setPosition(0.695);
+                break;
+            case 2:
+                Flicker2.setPosition(0.695);
+                break;
+            case 3:
+                Flicker3.setPosition(0.695);
+                break;
+        }
+    }
+
+    @Override
+    public void init() {
+        Flicker1 = hardwareMap.get(Servo.class, "Flicker1");
+        Flicker2 = hardwareMap.get(Servo.class, "Flicker2");
+        Flicker3 = hardwareMap.get(Servo.class, "Flicker3");
+
+        color_sensor_ppg_timer.reset();
+
+        Flicker1.setPosition(0);
+        Flicker2.setPosition(0);
+        Flicker3.setPosition(0);
+
+        colorSensorBackend = new ColorSensorBackend(hardwareMap);
+
+    }
+
+    @Override
+    public void loop() {
+        ColorSensorBackend.SensorResult[] sensors = colorSensorBackend.getDetectedColor(telemetry);
+
+        if (gamepad2.b) {
+            Flicker1.setPosition(0.695);
+            color_sensor_ppg_timer.reset();
+            color_sensor_ppg = Color_Sensor_PPG.TRIGGER_PPG;
+            //Can integrate the turret override on press of button as well in main
+        }
+        if (gamepad2.x) {
+            Flicker2.setPosition(0.695);
+            color_sensor_ppg_timer.reset();
+            color_sensor_ppg = Color_Sensor_PPG.TRIGGER_PPG;
+        }
+        if (gamepad2.y) {
+            Flicker3.setPosition(0.695);
+            color_sensor_ppg_timer.reset();
+            color_sensor_ppg = Color_Sensor_PPG.TRIGGER_PPG;
+        }
+
+        switch (color_sensor_ppg) {
+            case TRIGGER_PPG:
+                if (gamepad1.a) {
+                    color_sensor_ppg_timer.reset();
+                    color_sensor_ppg = Color_Sensor_PPG.SHOOTPURPLE1_PPG;
+                } break;
+            case SHOOTPURPLE1_PPG:
+                for (ColorSensorBackend.SensorResult sensor : sensors) {
+                    if (sensor.color == ColorSensorBackend.detectedColor.PURPLE_DIRECT || sensor.color == ColorSensorBackend.detectedColor.PURPLE_INDIRECT) {
+                        int sensorId = sensor.sensorId;
+                        usedSensorPurple1 = sensorId;
+                        flickSensor(sensorId);
+                        color_sensor_ppg_timer.reset();
+                        color_sensor_ppg = Color_Sensor_PPG.FLICKER1DOWN_PPG;
+                        break;
+                    }
+                } break;
+            case FLICKER1DOWN_PPG:
+                if (color_sensor_ppg_timer.seconds() >= flickerdown){
+                    Flicker1.setPosition(0);
+                    Flicker2.setPosition(0);
+                    Flicker3.setPosition(0);
+                    color_sensor_ppg_timer.reset();
+                    color_sensor_ppg = Color_Sensor_PPG.BREAK1_PPG;
+                } break;
+            case BREAK1_PPG:
+                if (color_sensor_ppg_timer.seconds() >= timerforshoot) {
+                    color_sensor_ppg_timer.reset();
+                    color_sensor_ppg = Color_Sensor_PPG.SHOOTPURPLE2_PPG;
+                } break;
+            case SHOOTPURPLE2_PPG:
+                for (ColorSensorBackend.SensorResult sensor : sensors) {
+                    if (sensor.color == ColorSensorBackend.detectedColor.PURPLE_DIRECT || sensor.color == ColorSensorBackend.detectedColor.PURPLE_INDIRECT &&
+                            sensor.sensorId != usedSensorPurple1) {
+                        int sensorId = sensor.sensorId;
+                        usedSensorPurple2 = sensorId;
+                        flickSensor(sensorId);
+                        color_sensor_ppg_timer.reset();
+                        color_sensor_ppg = Color_Sensor_PPG.FLICKER2DOWN_PPG;
+                        break;
+                    }
+                } break;
+            case FLICKER2DOWN_PPG:
+                if (color_sensor_ppg_timer.seconds() >= flickerdown){
+                    Flicker1.setPosition(0);
+                    Flicker2.setPosition(0);
+                    Flicker3.setPosition(0);
+                    color_sensor_ppg_timer.reset();
+                    color_sensor_ppg = Color_Sensor_PPG.BREAK2_PPG;
+                } break;
+            case BREAK2_PPG:
+                if (color_sensor_ppg_timer.seconds() >= timerforshoot) {
+                    color_sensor_ppg_timer.reset();
+                    color_sensor_ppg = Color_Sensor_PPG.SHOOTGREEN_PPG;
+                }
+                break;
+            case SHOOTGREEN_PPG:
+                for (ColorSensorBackend.SensorResult sensor : sensors) {
+                    if (sensor.color == ColorSensorBackend.detectedColor.GREEN_DIRECT || sensor.color == ColorSensorBackend.detectedColor.GREEN_INDIRECT &&
+                            sensor.sensorId != usedSensorPurple1 &&
+                            sensor.sensorId != usedSensorPurple2) {
+                        int sensorId = sensor.sensorId;
+                        flickSensor(sensorId);
+                        color_sensor_ppg_timer.reset();
+                        color_sensor_ppg = Color_Sensor_PPG.FLICKER3DOWN_PPG;
+                        break;
+                    }
+                }
+                break;
+            case FLICKER3DOWN_PPG:
+                if (color_sensor_ppg_timer.seconds() >= flickerdown){
+                    Flicker1.setPosition(0);
+                    Flicker2.setPosition(0);
+                    Flicker3.setPosition(0);
+                    color_sensor_ppg_timer.reset();
+                    color_sensor_ppg = Color_Sensor_PPG.TRIGGER_PPG;
+                } break;
+
+        }
+    }
+}
+
+

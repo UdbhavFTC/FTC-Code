@@ -1,0 +1,212 @@
+package org.firstinspires.ftc.teamcode.TeleopCodes;
+
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
+
+import org.firstinspires.ftc.teamcode.Backends.ColorSensorBackend;
+import org.firstinspires.ftc.teamcode.RobotTeleop.Mecanum;
+
+@TeleOp (name = "TeleopV2_GPP (ColorSensor+Mecanum")
+public class TeleopV2 extends OpMode {
+    Mecanum drive = new Mecanum();
+    double forward, strafe, rotate;
+
+    private ColorSensorBackend colorSensorBackend;
+
+    final double timerforshoot = 0.75;
+
+    final double flickerdown = 0.5;
+
+    public enum Color_Sensor_GPP {
+        TRIGGER_GPP,
+        SHOOTGREEN_GPP,
+        FLICKER1DOWN_GPP,
+        BREAK1_GPP,
+        SHOOTPURPLE1_GPP,
+        FLICKER2DOWN_GPP,
+        BREAK2_GPP,
+        SHOOTPURPLE2_GPP,
+        FLICKER3DOWN_GPP,
+    }
+
+
+    Servo Flicker1;
+    Servo Flicker2;
+    Servo Flicker3;
+
+    DcMotor Intake;
+
+    private int usedSensorGreen = 0;
+    private int usedSensorPurple1 = 0;
+
+    Color_Sensor_GPP color_sensor_gpp = Color_Sensor_GPP.TRIGGER_GPP;
+    ElapsedTime color_sensor_gpp_timer = new ElapsedTime();
+
+
+    private void flickSensor(int sensorId) {
+
+        //COLOR SENSOR LOGIC
+        switch (sensorId) {
+            case 1:
+                Flicker1.setPosition(0.695);
+                break;
+            case 2:
+                Flicker2.setPosition(0.695);
+                break;
+            case 3:
+                Flicker3.setPosition(0.695);
+                break;
+        }
+    }
+
+
+    @Override
+    public void init() {
+
+        //MECANUM
+        drive.init(hardwareMap);
+
+        Flicker1 = hardwareMap.get(Servo.class, "Flicker1");
+        Flicker2 = hardwareMap.get(Servo.class, "Flicker2");
+        Flicker3 = hardwareMap.get(Servo.class, "Flicker3");
+
+        Flicker1.setDirection(Servo.Direction.REVERSE);
+        Flicker2.setDirection(Servo.Direction.FORWARD);
+        Flicker3.setDirection(Servo.Direction.REVERSE);
+
+        Intake = hardwareMap.get(DcMotorEx.class,"Intake");
+
+        color_sensor_gpp_timer.reset();
+
+        Flicker1.setPosition(0);
+        Flicker2.setPosition(0);
+        Flicker3.setPosition(0);
+
+        colorSensorBackend = new ColorSensorBackend(hardwareMap);
+
+
+    }
+
+    @Override
+    public void loop() {
+
+        //MECANUM
+        forward = -gamepad1.left_stick_y;
+        strafe = gamepad1.left_stick_x;
+        rotate = gamepad1.right_stick_x;
+
+        //drive.fieldCentric(forward, strafe, rotate);
+
+        Intake.setPower(gamepad1.right_trigger*0.7);
+        Intake.setPower(-gamepad1.left_trigger*0.7);
+
+        //COLOR SENSOR LOGIC
+        ColorSensorBackend.SensorResult[] sensors = colorSensorBackend.getDetectedColor(telemetry);
+
+        if (gamepad2.b){
+            Flicker1.setPosition(0.695);
+            color_sensor_gpp_timer.reset();
+            color_sensor_gpp = Color_Sensor_GPP.TRIGGER_GPP;
+            //Can integrate the turret override on press of button as well in main
+        }
+        if (gamepad2.x){
+            Flicker2.setPosition(0.695);
+            color_sensor_gpp_timer.reset();
+            color_sensor_gpp = Color_Sensor_GPP.TRIGGER_GPP;
+        }
+        if (gamepad2.y){
+            Flicker3.setPosition(0.695);
+            color_sensor_gpp_timer.reset();
+            color_sensor_gpp = Color_Sensor_GPP.TRIGGER_GPP;
+        }
+
+        switch (color_sensor_gpp) {
+            case TRIGGER_GPP:
+                if (gamepad2.a){
+                    color_sensor_gpp_timer.reset();
+                    color_sensor_gpp = Color_Sensor_GPP.SHOOTGREEN_GPP;
+                } break;
+            case SHOOTGREEN_GPP:
+                for (ColorSensorBackend.SensorResult sensor : sensors) {
+                    if (sensor.color == ColorSensorBackend.detectedColor.GREEN_DIRECT || sensor.color == ColorSensorBackend.detectedColor.GREEN_INDIRECT) {
+                        int sensorId = sensor.sensorId;
+                        flickSensor(sensorId);
+                        usedSensorGreen = sensor.sensorId;
+                        color_sensor_gpp_timer.reset();
+                        color_sensor_gpp = Color_Sensor_GPP.FLICKER1DOWN_GPP;
+                        break;
+                    }
+                } break;
+            case FLICKER1DOWN_GPP:
+                if (color_sensor_gpp_timer.seconds() >= flickerdown) {
+                    Flicker1.setPosition(0);
+                    Flicker2.setPosition(0);
+                    Flicker3.setPosition(0);
+                    color_sensor_gpp_timer.reset();
+                    color_sensor_gpp = Color_Sensor_GPP.BREAK1_GPP;
+                } break;
+            case BREAK1_GPP:
+                if (color_sensor_gpp_timer.seconds() >= timerforshoot){
+                    Flicker1.setPosition(0);
+                    color_sensor_gpp_timer.reset();
+                    color_sensor_gpp = Color_Sensor_GPP.SHOOTPURPLE1_GPP;
+                } break;
+            case SHOOTPURPLE1_GPP:
+                for (ColorSensorBackend.SensorResult sensor : sensors) {
+                    if (sensor.color == ColorSensorBackend.detectedColor.PURPLE_DIRECT || sensor.color == ColorSensorBackend.detectedColor.PURPLE_INDIRECT &&
+                            sensor.sensorId != usedSensorGreen) {
+                        int sensorId = sensor.sensorId;
+                        usedSensorPurple1 = sensorId;
+                        flickSensor(sensorId);
+                        color_sensor_gpp_timer.reset();
+                        color_sensor_gpp = Color_Sensor_GPP.FLICKER2DOWN_GPP;
+                        break;
+                    }
+                } break;
+            case FLICKER2DOWN_GPP:
+                    if (color_sensor_gpp_timer.seconds() >= flickerdown){
+                        Flicker1.setPosition(0);
+                        Flicker2.setPosition(0);
+                        Flicker3.setPosition(0);
+                        color_sensor_gpp_timer.reset();
+                        color_sensor_gpp = Color_Sensor_GPP.BREAK2_GPP;
+                    } break;
+            case BREAK2_GPP:
+                if (color_sensor_gpp_timer.seconds() >= timerforshoot) {
+                    color_sensor_gpp_timer.reset();
+                    color_sensor_gpp = Color_Sensor_GPP.SHOOTPURPLE2_GPP;
+                } break;
+            case SHOOTPURPLE2_GPP:
+                for (ColorSensorBackend.SensorResult sensor : sensors) {
+                    if (sensor.color == ColorSensorBackend.detectedColor.PURPLE_DIRECT || sensor.color == ColorSensorBackend.detectedColor.PURPLE_INDIRECT &&
+                            sensor.sensorId != usedSensorGreen &&
+                            sensor.sensorId != usedSensorPurple1) {
+                        int sensorId = sensor.sensorId;
+                        flickSensor(sensorId);
+                        color_sensor_gpp_timer.reset();
+                        color_sensor_gpp = Color_Sensor_GPP.FLICKER3DOWN_GPP;
+                        break;
+                    }
+                } break;
+            case FLICKER3DOWN_GPP:
+                    if (color_sensor_gpp_timer.seconds() >= flickerdown){
+                        Flicker1.setPosition(0);
+                        Flicker2.setPosition(0);
+                        Flicker3.setPosition(0);
+                        color_sensor_gpp_timer.reset();
+                        color_sensor_gpp = Color_Sensor_GPP.TRIGGER_GPP;
+                    } break;
+
+        }
+
+    }
+
+}
+
+
+
+
